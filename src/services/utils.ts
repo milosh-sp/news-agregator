@@ -2,11 +2,13 @@ import {
   AggregatedArticle,
   UnifiedQuery,
 } from './models/AggregatedArticles.model'
+import { DataCubeArticle } from './models/DataCube.model'
 import { NewsOrgArticle } from './models/NewsOrg.model'
 import { NyTimesArticle } from './models/NyTimes.model'
 import { GuardianArticle } from './models/TheGuardian.model'
 import {
   ArticleQuery,
+  DataCubeQuery,
   GuardianQuery,
   NewsOrgQuery,
   NyTimesQuery,
@@ -143,6 +145,13 @@ function queryToNyTimesParams({
  * Unifies a generic query params and creates an object that has a property for
  * each API, and the property is an object params modified to fit each news API
  */
+/**
+ * Data Cube has no query params
+ */
+function queryToDataCubeParams(): DataCubeQuery {
+  return {}
+}
+
 function unifyQuery({
   author,
   category,
@@ -172,6 +181,11 @@ function unifyQuery({
       searchWord,
       apiKey,
     }),
+    dataCubeTech: queryToDataCubeParams(),
+    dataCubeInvestment: queryToDataCubeParams(),
+    dataCubeTips: queryToDataCubeParams(),
+    dataCubeVideos: queryToDataCubeParams(),
+    dataCubeTrends: queryToDataCubeParams(),
   }
 }
 
@@ -231,19 +245,17 @@ function getNestedValue<T>(obj: T, path: string): unknown {
     return (obj as Record<string, unknown>)[path]
   }
 
-  // Then try nested access
-  return path.split('.').reduce(
-    (
-      acc: Record<string, unknown> | undefined,
-      part: string
-    ): Record<string, unknown> | undefined => {
-      if (acc === undefined || acc === null) {
-        return undefined
-      }
-      return acc[part] as Record<string, unknown> | undefined
-    },
-    obj as Record<string, unknown>
-  )
+  // Then try nested access; if a segment is an array, use the first element
+  return path.split('.').reduce((acc: unknown, part: string): unknown => {
+    if (acc === undefined || acc === null) {
+      return undefined
+    }
+    if (Array.isArray(acc)) {
+      const first = acc[0] as Record<string, unknown> | undefined
+      return first?.[part]
+    }
+    return (acc as Record<string, unknown>)[part]
+  }, obj as unknown)
 }
 
 /**
@@ -261,10 +273,12 @@ function unifyObjects<T>(
       ([targetKey, sourceKeys]) => {
         let value: unknown
 
-        // Check source keys in priority order
+        // Check source keys in priority order; skip null/empty so e.g.
+        // videoThumbnailUrl: null does not block thumbnailUrl
         for (const sourceKey of sourceKeys) {
           value = getNestedValue(sourceObj, sourceKey)
-          if (value !== undefined) break
+          if (value !== undefined && value !== null && value !== '') break
+          value = undefined
         }
 
         unified[targetKey] = value
@@ -276,31 +290,135 @@ function unifyObjects<T>(
 }
 
 /**
+ * Derives a short title from a long content blob (Data Cube has no title field)
+ */
+function deriveTitleFromContent(content: string): {
+  title: string
+  description: string
+} {
+  const trimmed = content.trim()
+  const sentenceMatch = trimmed.match(/^(.+?[.!?])(?:\s|$)/)
+  const firstSentence = sentenceMatch?.[1]?.trim()
+
+  if (firstSentence && firstSentence.length <= 160) {
+    return {
+      title: firstSentence,
+      description: trimmed.slice(firstSentence.length).trim() || trimmed,
+    }
+  }
+
+  const title =
+    trimmed.length > 120 ? `${trimmed.slice(0, 117).trimEnd()}...` : trimmed
+
+  return {
+    title,
+    description: trimmed,
+  }
+}
+
+/**
  * Takes in an array of multiple articles from different sources and maps them
  * to a single object with the same keys
  */
 function processArticlesAndAggregate(
-  arrayOfArticles: Array<NyTimesArticle | GuardianArticle | NewsOrgArticle>
+  arrayOfArticles: Array<
+    NyTimesArticle | GuardianArticle | NewsOrgArticle | DataCubeArticle
+  >
 ) {
   //TODO: Might want to put this as a config
   const propertyMap = {
     id: ['id', '_id', 'source.id'],
-    title: ['title', 'webTitle', 'headline.main'],
-    description: ['abstract', 'snippet', 'lead_paragraph'],
-    url: ['webUrl', 'web_url', 'url'],
+    title: ['title', 'webTitle', 'headline.main', 'content'],
+    description: [
+      'abstract',
+      'snippet',
+      'lead_paragraph',
+      'summary',
+      'tip',
+      'content',
+    ],
+    url: ['webUrl', 'web_url', 'url', 'sourceUrl'],
     //TODO: Multimedia url won't work, because NYT
     // does not send the full url they only send the PATH
-    imageUrl: ['urlToImage', 'multimedia.url'],
-    publishedAt: ['publishedAt', 'webPublicationDate', 'pub_date'],
-    category: ['sectionId', 'section_name', 'sectionName'],
-    author: ['author', 'byline.original'],
+    imageUrl: [
+      'urlToImage',
+      'multimedia.url',
+      'videoThumbnailUrl',
+      'thumbnailUrl',
+    ],
+    publishedAt: ['publishedAt', 'webPublicationDate', 'pub_date', 'timestamp'],
+    category: ['sectionId', 'section_name', 'sectionName', 'category'],
+    author: ['author.name', 'channelName', 'author', 'byline.original'],
     content: ['content'],
-    source: ['source.id', 'source.name', 'source'],
+    source: [
+      'source.id',
+      'source.name',
+      'source',
+      'platform',
+      'channelName',
+    ],
+    videoId: ['videoId'],
   }
 
   const unified = unifyObjects(arrayOfArticles, propertyMap)
 
-  return [...unified] as unknown as Array<AggregatedArticle>
+  return unified.map((article) => {
+    const mapped = article as unknown as AggregatedArticle & {
+      content?: string
+      videoId?: string
+    }
+    const content =
+      typeof mapped.content === 'string' ? mapped.content : undefined
+
+    let result = { ...mapped } as AggregatedArticle & {
+      content?: string
+      videoId?: string
+    }
+
+    // Data Cube maps content into both title and description; shorten the title
+    if (
+      content &&
+      result.title === content &&
+      (!result.description || result.description === content)
+    ) {
+      const { title, description } = deriveTitleFromContent(content)
+      result = { ...result, title, description }
+    }
+
+    if (result.videoId) {
+      if (!result.url) {
+        result = {
+          ...result,
+          url: `https://www.youtube.com/watch?v=${result.videoId}`,
+        }
+      }
+      if (!result.imageUrl) {
+        result = {
+          ...result,
+          imageUrl: `https://i.ytimg.com/vi/${result.videoId}/hqdefault.jpg`,
+        }
+      }
+    }
+
+    // NYT multimedia paths are relative; prefix when needed
+    if (
+      typeof result.imageUrl === 'string' &&
+      result.imageUrl.startsWith('/')
+    ) {
+      result = {
+        ...result,
+        imageUrl: `https://www.nytimes.com/${result.imageUrl.replace(
+          /^\//,
+          ''
+        )}`,
+      }
+    }
+
+    // Drop helper fields that are not part of AggregatedArticle
+    delete result.content
+    delete result.videoId
+    return result as AggregatedArticle
+  })
 }
 
 export {
