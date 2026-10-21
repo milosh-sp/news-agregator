@@ -1,0 +1,11 @@
+# Forwards /data-cube-api/* to the Data Cube AI API, so the browser only ever
+# talks to our own origin (no CORS). Keep in sync with the proxy in
+# vite.config.ts, which does the same thing for `npm run dev` and `vite preview`.
+#
+# Rules are evaluated top to bottom; status 200 makes this a proxy (rewrite),
+# not a redirect.
+[[redirects]]
+  from = "/data-cube-api/*"
+  to = "https://api-production-3ee5.up.railway.app/:splat"
+  status = 200
+  force = true
