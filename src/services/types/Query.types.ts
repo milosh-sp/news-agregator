@@ -54,4 +54,15 @@ type NyTimesQuery = {
   'api-key': string
 }
 
-export type { ArticleQuery, NewsOrgQuery, GuardianQuery, NyTimesQuery }
+/**
+ * Data Cube has no query params; empty object keeps unifyQuery keyed per source
+ */
+type DataCubeQuery = Record<string, never>
+
+export type {
+  ArticleQuery,
+  NewsOrgQuery,
+  GuardianQuery,
+  NyTimesQuery,
+  DataCubeQuery,
+}

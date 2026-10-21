@@ -16,11 +16,13 @@ function NewsArticleHeader({
     <header className={style['news-article__header']}>
       <div className={style['news-article__img-title']}>
         <h2 className={style['news-article__title']}>{title}</h2>
-        <Image
-          src={imageUrl}
-          alt={title}
-          className={style['news-article__image']}
-        />
+        {imageUrl ? (
+          <Image
+            src={imageUrl}
+            alt={title}
+            className={style['news-article__image']}
+          />
+        ) : null}
       </div>
 
       <IconAndElement icon={'category'}>

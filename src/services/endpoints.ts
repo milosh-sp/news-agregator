@@ -8,6 +8,13 @@ declare global {
   }
 }
 
+/**
+ * Proxied via Vite (`/data-cube-api` → Railway) to avoid browser CORS
+ */
+const DATA_CUBE_BASE = '/data-cube-api'
+
+const dataCubeWeeksUrl = `${DATA_CUBE_BASE}/api/weeks`
+
 const endpoints = {
   newsOrg: {
     url: 'https://newsapi.org/v2/everything',
@@ -36,6 +43,31 @@ const endpoints = {
     responseKey: 'docs',
     timeout: 10_000,
   },
+  dataCubeTech: {
+    url: `${DATA_CUBE_BASE}/api/tech/{periodId}`,
+    responseKey: 'en',
+    timeout: 10_000,
+  },
+  dataCubeInvestment: {
+    url: `${DATA_CUBE_BASE}/api/investment/{periodId}`,
+    responseKey: 'en',
+    timeout: 10_000,
+  },
+  dataCubeTips: {
+    url: `${DATA_CUBE_BASE}/api/tips/{periodId}`,
+    responseKey: 'en',
+    timeout: 10_000,
+  },
+  dataCubeVideos: {
+    url: `${DATA_CUBE_BASE}/api/videos/{periodId}`,
+    responseKey: 'en',
+    timeout: 10_000,
+  },
+  dataCubeTrends: {
+    url: `${DATA_CUBE_BASE}/api/trends/{periodId}`,
+    responseKey: 'en',
+    timeout: 10_000,
+  },
 }
 
-export { endpoints }
+export { endpoints, dataCubeWeeksUrl }
