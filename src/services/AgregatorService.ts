@@ -65,12 +65,11 @@ export class AggregatorService implements IAggregatorService {
     }
 
     try {
-      const weeksResponse = await this.getArticlesFromSource<
-        DataCubeWeeksResponse
-      >({
-        url: dataCubeWeeksUrl,
-        config: { signal },
-      })
+      const weeksResponse =
+        await this.getArticlesFromSource<DataCubeWeeksResponse>({
+          url: dataCubeWeeksUrl,
+          config: { signal },
+        })
 
       if (
         !weeksResponse ||

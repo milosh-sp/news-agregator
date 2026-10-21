@@ -350,13 +350,7 @@ function processArticlesAndAggregate(
     category: ['sectionId', 'section_name', 'sectionName', 'category'],
     author: ['author.name', 'channelName', 'author', 'byline.original'],
     content: ['content'],
-    source: [
-      'source.id',
-      'source.name',
-      'source',
-      'platform',
-      'channelName',
-    ],
+    source: ['source.id', 'source.name', 'source', 'platform', 'channelName'],
     videoId: ['videoId'],
   }
 
