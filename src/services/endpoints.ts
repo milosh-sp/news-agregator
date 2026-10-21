@@ -8,10 +8,7 @@ declare global {
   }
 }
 
-/**
- * Proxied via Vite (`/data-cube-api` → Railway) to avoid browser CORS
- */
-const DATA_CUBE_BASE = '/data-cube-api'
+const DATA_CUBE_BASE = 'https://api-production-3ee5.up.railway.app'
 
 const dataCubeWeeksUrl = `${DATA_CUBE_BASE}/api/weeks`
 
